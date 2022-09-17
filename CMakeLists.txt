@@ -21,6 +21,15 @@ if(NOT TARGET dobby)
     )
 endif()
 
+# pass through defines for easier building
+if(IU_NO_MISSING_MARKER)
+    add_compile_options(/D IU_NO_MISSING_MARKER)
+endif()
+
+if(IU_MISSING_MARKER)
+    add_compile_options(/D IU_MISSING_MARKER=${IU_MISSING_MARKER})
+endif()
+
 add_library(InputUnlocker SHARED main.cpp)
 
 target_link_libraries(InputUnlocker dobby)

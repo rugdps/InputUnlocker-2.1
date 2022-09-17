@@ -11,6 +11,12 @@ static_assert(sizeof(std::string) == 24, "std::string size is incorrect. "
                                          "If you want to debug it, use RelWithDebInfo profile. "
                                          "MinSizeRel also works");
 
+#ifndef IU_MISSING_MARKER
+#define IU_MISSING_MARKER '?'
+#endif
+
+static_assert(IU_MISSING_MARKER < 128, "At the moment IU_MISSING_MARKER only support ASCII");
+
 extern "C" {
     // meh, I don't like this overbloat of minhook and forced dynamic linking
     // works fine if you use bepinex's fork
@@ -199,7 +205,7 @@ DWORD WINAPI MainThread(PVOID) {
 
     // magic nop
     // was the last piece to get stuff working
-    // apperantly GD's fnt parser slices ids to 3 digits (all of cyrillics are 1024 at least)
+    // apparently GD's fnt parser slices ids to 3 digits (all of cyrillics are 1024 at least)
     writeProtected((LPVOID) (gdBaseAddress + 0x107CB), new BYTE[2]{0x90, 0x90}, 2); // nop string subtraction
 
     // I don't think we need some complicated stuff like in applyWidth to be fine
@@ -212,11 +218,13 @@ DWORD WINAPI MainThread(PVOID) {
 
     auto cocos2d = GetModuleHandleA("libcocos2d.dll");
 
+#ifndef IU_NO_MISSING_MARKER
     writeProtected((LPVOID)((uintptr_t)cocos2d + 0x9C96D),
             new BYTE[10] {
-                0xBF, 0x3F, 0x00, 0x00, 0x00, // mov edi, 3F ; set character to '?' if it's not present in bitmap set
+                0xBF, IU_MISSING_MARKER, 0x00, 0x00, 0x00, // mov edi, IU_MISSING_MARKER
                 0xE9, 0xCF, 0x00, 0x00, 0x00, // jmp back to code flow
             },10);
+#endif
 
     CCIMEDispatcher_sharedDispatcher = (CCIMEDispatcher_sharedDispatcher_f) GetProcAddress(cocos2d,"?sharedDispatcher@CCIMEDispatcher@cocos2d@@SAPAV12@XZ");
     CCIMEDispatcher_dispatchInsertText = (CCIMEDispatcher_dispatchInsertText_f) GetProcAddress(cocos2d,"?dispatchInsertText@CCIMEDispatcher@cocos2d@@QAEXPBDH@Z");
