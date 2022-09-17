@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 project(InputUnlocker)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_SOURCE_DIR src)
 
 if(NOT TARGET dobby)
     set(DOBBY_DIR Dobby)
@@ -15,7 +16,7 @@ if(NOT TARGET dobby)
             TARGET dobby
             PROPERTY INCLUDE_DIRECTORIES)
     include_directories(
-            .
+            ${CMAKE_SOURCE_DIR}
             ${DOBBY_INCLUDE_DIRECTORIES}
             $<TARGET_PROPERTY:dobby,INCLUDE_DIRECTORIES>
     )
@@ -30,6 +31,6 @@ if(IU_MISSING_MARKER)
     add_compile_options(/D IU_MISSING_MARKER=${IU_MISSING_MARKER})
 endif()
 
-add_library(InputUnlocker SHARED main.cpp)
+add_library(InputUnlocker SHARED ${CMAKE_SOURCE_DIR}/main.cpp ${CMAKE_SOURCE_DIR}/utils.hpp ${CMAKE_SOURCE_DIR}/utils.cpp)
 
 target_link_libraries(InputUnlocker dobby)

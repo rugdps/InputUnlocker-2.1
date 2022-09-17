@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <string>
+#include "utils.hpp"
 
 #ifndef WIN32
 #error "WIN32 is not defined. You should add \"-A win32\" as CMake argument"
@@ -17,14 +18,6 @@ static_assert(sizeof(std::string) == 24, "std::string size is incorrect. "
 
 static_assert(IU_MISSING_MARKER < 128, "At the moment IU_MISSING_MARKER only support ASCII");
 
-extern "C" {
-    // meh, I don't like this overbloat of minhook and forced dynamic linking
-    // works fine if you use bepinex's fork
-    extern auto DobbyHook(void *function_address, void *replace_call, void **origin_call) -> int;
-}
-
-void (*dispatchChar_o)(void *, WPARAM);
-
 // I don't use cocos2d.h because of some weird issues on some machines where it fails to link on startup
 // we only need 2 functions, so who cares
 typedef void *(__cdecl *CCIMEDispatcher_sharedDispatcher_f)();
@@ -33,10 +26,7 @@ typedef void (__thiscall *CCIMEDispatcher_dispatchInsertText_f)(void *, const ch
 CCIMEDispatcher_sharedDispatcher_f CCIMEDispatcher_sharedDispatcher;
 CCIMEDispatcher_dispatchInsertText_f CCIMEDispatcher_dispatchInsertText;
 
-uintptr_t writeWidthReturnAddress;
-uintptr_t readWidthReturnAddress;
-uintptr_t applyWidthReturnAddress;
-
+void (*dispatchChar_o)(void *, WPARAM);
 void dispatchChar_h(void *idk, WPARAM code) {
     // this exists in cocos2d 2.2.3
     // rob probably wiped it out on purpose
@@ -48,6 +38,10 @@ void dispatchChar_h(void *idk, WPARAM code) {
     }
     dispatchChar_o(idk, code);
 }
+
+uintptr_t writeWidthReturnAddress;
+uintptr_t readWidthReturnAddress;
+uintptr_t applyWidthReturnAddress;
 
 void __declspec(naked) writeWidth_mh() {
     __asm {
@@ -159,80 +153,42 @@ void __fastcall GJWriteMessagePopup_updateCharCountLabel_h(char* pThis, void* ed
     *sizePtr = oldSize;
 }
 
-static HANDLE handle;
-
-void writeProtected(LPVOID address, BYTE *bytes, size_t len) {
-    DWORD old;
-    VirtualProtectEx(handle, address, len, PAGE_EXECUTE_READWRITE, &old);
-    WriteProcessMemory(handle, address, bytes, len, nullptr);
-    VirtualProtectEx(handle, address, len, old, &old);
-}
-
-void midhook(uintptr_t dst, uintptr_t src, size_t len, uintptr_t* returnAddress) {
-    // since we write bytes we should get relatives
-    auto relativeAddress = src - (dst + 5);
-
-    *returnAddress = dst + len;
-
-    auto data = new BYTE[len];
-    data[0] = 0xE9; // jmp
-    *(uintptr_t *) (data + 1) = relativeAddress;
-    for (size_t i = 5; i < len; i++) {
-        data[i] = 0x90; // nop
-    }
-
-    writeProtected((LPVOID) dst, data, len);
-}
-
 DWORD WINAPI MainThread(PVOID) {
-    HWND okno;
-    do {
-        // GeometryDash is using GLFW 3.0 (or glfw with opengl 3.0 idk)
-        // so we are looking for this class instead of window name because mods and custom clients:tm:
-        okno = FindWindowA("GLFW30", nullptr);
-    } while (!okno);
-    DWORD procId;
-    GetWindowThreadProcessId(okno, &procId);
-    // I'm actually not sure if there's any way of writing protected memory without this
-    handle = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, FALSE, procId);
+    memory::init(GetCurrentProcessId());
 
-    auto gdBaseAddress = (uintptr_t) GetModuleHandle(nullptr);
-
-    writeProtected((LPVOID) (gdBaseAddress + 0x1030B), new BYTE{0xF4}, 1); // increase FontObject size
-    writeProtected((LPVOID) (gdBaseAddress + 0x2A5E8), new BYTE{0xF6}, 1); // increase MultilineBitmapFont size
-    writeProtected((LPVOID) (gdBaseAddress + 0x10814), new BYTE[3]{0x90, 0x90, 0x90},3); // nop 300 ids check in config parse
-    writeProtected((LPVOID) (gdBaseAddress + 0x2A77F), new BYTE[2]{0x52, 0x04},2); // increase loaded char ids in MultilineBitmapFont
+    memory::writeProtected(gd::base + 0x1030B, new BYTE{0xF4}, 1); // increase FontObject size
+    memory::writeProtected(gd::base + 0x2A5E8, new BYTE{0xF6}, 1); // increase MultilineBitmapFont size
+    memory::writeProtected(gd::base + 0x10814, new BYTE[3]{0x90, 0x90, 0x90}, 3); // nop 300 ids check in config parse
+    memory::writeProtected(gd::base + 0x2A77F, new BYTE[2]{0x52, 0x04}, 2); // increase loaded char ids in MultilineBitmapFont
 
     // magic nop
     // was the last piece to get stuff working
     // apparently GD's fnt parser slices ids to 3 digits (all of cyrillics are 1024 at least)
-    writeProtected((LPVOID) (gdBaseAddress + 0x107CB), new BYTE[2]{0x90, 0x90}, 2); // nop string subtraction
+    memory::writeProtected(gd::base + 0x107CB, new BYTE[2]{0x90, 0x90}, 2); // nop string subtraction
 
     // I don't think we need some complicated stuff like in applyWidth to be fine
     // because afaik this code piece only triggers on \n which is always ascii
-    writeProtected((LPVOID) (gdBaseAddress + 0x2B695), new BYTE[2]{0xC8, 0x06}, 2); // map space width to new memory
+    memory::writeProtected(gd::base + 0x2B695, new BYTE[2]{0xC8, 0x06}, 2); // map space width to new memory
 
-    midhook(gdBaseAddress + 0x10845, (uintptr_t) &writeWidth_mh, 11, &writeWidthReturnAddress);
-    midhook(gdBaseAddress + 0x2A783, (uintptr_t) &readWidth_mh, 9, &readWidthReturnAddress);
-    midhook(gdBaseAddress + 0x2B55D, (uintptr_t) &applyWidth_mh, 11, &applyWidthReturnAddress);
-
-    auto cocos2d = GetModuleHandleA("libcocos2d.dll");
+    memory::midhook(gd::base + 0x10845, (uintptr_t) &writeWidth_mh, 11, &writeWidthReturnAddress);
+    memory::midhook(gd::base + 0x2A783, (uintptr_t) &readWidth_mh, 9, &readWidthReturnAddress);
+    memory::midhook(gd::base + 0x2B55D, (uintptr_t) &applyWidth_mh, 11, &applyWidthReturnAddress);
 
 #ifndef IU_NO_MISSING_MARKER
-    writeProtected((LPVOID)((uintptr_t)cocos2d + 0x9C96D),
-            new BYTE[10] {
-                0xBF, IU_MISSING_MARKER, 0x00, 0x00, 0x00, // mov edi, IU_MISSING_MARKER
-                0xE9, 0xCF, 0x00, 0x00, 0x00, // jmp back to code flow
-            },10);
+    memory::writeProtected(cocos2d::base + 0x9C96D,
+                           new BYTE[10]{
+                                   0xBF, IU_MISSING_MARKER, 0x00, 0x00, 0x00, // mov edi, IU_MISSING_MARKER
+                                   0xE9, 0xCF, 0x00, 0x00, 0x00, // jmp back to code flow
+                           }, 10);
 #endif
 
-    CCIMEDispatcher_sharedDispatcher = (CCIMEDispatcher_sharedDispatcher_f) GetProcAddress(cocos2d,"?sharedDispatcher@CCIMEDispatcher@cocos2d@@SAPAV12@XZ");
-    CCIMEDispatcher_dispatchInsertText = (CCIMEDispatcher_dispatchInsertText_f) GetProcAddress(cocos2d,"?dispatchInsertText@CCIMEDispatcher@cocos2d@@QAEXPBDH@Z");
+    CCIMEDispatcher_sharedDispatcher = (CCIMEDispatcher_sharedDispatcher_f) GetProcAddress(cocos2d::handle,"?sharedDispatcher@CCIMEDispatcher@cocos2d@@SAPAV12@XZ");
+    CCIMEDispatcher_dispatchInsertText = (CCIMEDispatcher_dispatchInsertText_f) GetProcAddress(cocos2d::handle,"?dispatchInsertText@CCIMEDispatcher@cocos2d@@QAEXPBDH@Z");
 
-    DobbyHook((LPVOID) ((uintptr_t) cocos2d + 0xC3C70), (LPVOID) dispatchChar_h, (LPVOID*) &dispatchChar_o);
+    memory::hook(cocos2d::base + 0xC3C70, (LPVOID) dispatchChar_h, (LPVOID *) &dispatchChar_o);
 
-    DobbyHook((LPVOID) (gdBaseAddress + 0x24CDC0), (LPVOID) ShareCommentLayer_updateCharCountLabel_h, (LPVOID*) &ShareCommentLayer_updateCharCountLabel_o);
-    DobbyHook((LPVOID) (gdBaseAddress + 0x142750), (LPVOID) GJWriteMessagePopup_updateCharCountLabel_h, (LPVOID*) &GJWriteMessagePopup_updateCharCountLabel_o);
+    memory::hook(gd::base + 0x24CDC0, (LPVOID) ShareCommentLayer_updateCharCountLabel_h,(LPVOID *) &ShareCommentLayer_updateCharCountLabel_o);
+    memory::hook(gd::base + 0x142750, (LPVOID) GJWriteMessagePopup_updateCharCountLabel_h,(LPVOID *) &GJWriteMessagePopup_updateCharCountLabel_o);
 
     return 0;
 }
