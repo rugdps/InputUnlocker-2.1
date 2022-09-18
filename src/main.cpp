@@ -177,6 +177,17 @@ void __fastcall TextArea_setString_h(void* pThis, void* edx, std::string str) {
 }
 #endif
 
+#ifdef IU_NW_VERSION
+auto __IU_NW_DATA = std::string("&inputUnlockerVersion=") + std::to_string(IU_NW_VERSION);
+
+void (__thiscall* CCHttpClient_setRequestData_o)(void* pThis, const char* data, unsigned int len);
+void __fastcall CCHttpClient_setRequestData_h(void* pThis, void* edx, const char* data, unsigned int len) {
+    auto newData = std::string(data, len) + __IU_NW_DATA;
+
+    CCHttpClient_setRequestData_o(pThis, newData.c_str(), newData.size());
+}
+#endif
+
 DWORD WINAPI MainThread(PVOID) {
     memory::init(GetCurrentProcessId());
 
@@ -212,6 +223,11 @@ DWORD WINAPI MainThread(PVOID) {
     memory::hook(gd::base + 0x142750, (LPVOID) GJWriteMessagePopup_updateCharCountLabel_h,(LPVOID *) &GJWriteMessagePopup_updateCharCountLabel_o);
 #ifndef IU_NO_UTF8_VALIDATION
     memory::hook(gd::base + 0x033480, (LPVOID) TextArea_setString_h, (LPVOID *) &TextArea_setString_o);
+#endif
+
+#ifdef IU_NW_VERSION
+    auto extensions = GetModuleHandleA("libExtensions.dll");
+    memory::hook((uintptr_t)GetProcAddress(extensions, "?setRequestData@CCHttpRequest@extension@cocos2d@@QAEXPBDI@Z"),(LPVOID) CCHttpClient_setRequestData_h, (LPVOID *) &CCHttpClient_setRequestData_o);
 #endif
 
     return 0;

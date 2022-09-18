@@ -35,6 +35,9 @@ endif()
 if(IU_INVALID_UTF8_MARKER)
     add_compile_options(/D IU_INVALID_UTF8_MARKER=${IU_INVALID_UTF8_MARKER})
 endif()
+if(NOT IU_NO_NETWORKING)
+    add_compile_options(/D IU_NW_VERSION=1)
+endif()
 
 add_library(InputUnlocker SHARED ${CMAKE_SOURCE_DIR}/main.cpp ${CMAKE_SOURCE_DIR}/utils.hpp ${CMAKE_SOURCE_DIR}/utils.cpp)
 
