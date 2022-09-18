@@ -153,6 +153,14 @@ void __fastcall GJWriteMessagePopup_updateCharCountLabel_h(char* pThis, void* ed
     *sizePtr = oldSize;
 }
 
+#ifndef IU_NO_UTF8_VALIDATION
+void (__thiscall* TextArea_setString_o)(void* pThis, std::string str);
+void __fastcall TextArea_setString_h(void* pThis, void* edx, std::string str) {
+    // FIXME: potential memory leak
+    TextArea_setString_o(pThis, correctUtf8(str));
+}
+#endif
+
 DWORD WINAPI MainThread(PVOID) {
     memory::init(GetCurrentProcessId());
 
@@ -189,6 +197,9 @@ DWORD WINAPI MainThread(PVOID) {
 
     memory::hook(gd::base + 0x24CDC0, (LPVOID) ShareCommentLayer_updateCharCountLabel_h,(LPVOID *) &ShareCommentLayer_updateCharCountLabel_o);
     memory::hook(gd::base + 0x142750, (LPVOID) GJWriteMessagePopup_updateCharCountLabel_h,(LPVOID *) &GJWriteMessagePopup_updateCharCountLabel_o);
+#ifndef IU_NO_UTF8_VALIDATION
+    memory::hook(gd::base + 0x033480, (LPVOID) TextArea_setString_h, (LPVOID *) &TextArea_setString_o);
+#endif
 
     return 0;
 }

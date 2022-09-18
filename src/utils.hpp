@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <dobby.h>
+#include <string>
 
 namespace gd {
     extern uintptr_t base;
@@ -19,5 +20,9 @@ namespace memory {
     void midhook(uintptr_t dst, uintptr_t src, size_t len, uintptr_t* returnAddress);
     int hook(uintptr_t address, void* replaceCall, void** originCall);
 }
+
+#ifndef IU_NO_UTF8_VALIDATION
+std::string correctUtf8(std::string& str);
+#endif
 
 #endif //INPUTUNLOCKER_UTILS_HPP
