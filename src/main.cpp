@@ -16,8 +16,6 @@ static_assert(sizeof(std::string) == 24, "std::string size is incorrect. "
 #define IU_MISSING_MARKER '?'
 #endif
 
-static_assert(IU_MISSING_MARKER < 128, "At the moment IU_MISSING_MARKER only support ASCII");
-
 // I don't use cocos2d.h because of some weird issues on some machines where it fails to link on startup
 // we only need 2 functions, so who cares
 typedef void *(__cdecl *CCIMEDispatcher_sharedDispatcher_f)();
@@ -42,6 +40,7 @@ void dispatchChar_h(void *idk, WPARAM code) {
 uintptr_t writeWidthReturnAddress;
 uintptr_t readWidthReturnAddress;
 uintptr_t applyWidthReturnAddress;
+uintptr_t missingCharMarkerReturnAddress;
 
 void __declspec(naked) writeWidth_mh() {
     __asm {
@@ -99,6 +98,23 @@ void __declspec(naked) applyWidth_mh() {
             jmp applyWidthReturnAddress
     }
 }
+
+#ifndef IU_NO_MISSING_MARKER
+void __declspec(naked) missingCharMarker_mh() {
+    __asm {
+        cmp edi, 'a'
+        jl skip
+        cmp edi, 'z'
+        jg skip
+        sub edi, 0x20
+        jmp done
+        skip:
+        mov edi, IU_MISSING_MARKER
+        done:
+        jmp [missingCharMarkerReturnAddress]
+    }
+}
+#endif
 
 void (__thiscall* ShareCommentLayer_updateCharCountLabel_o)(void* pThis);
 void __fastcall ShareCommentLayer_updateCharCountLabel_h(char* pThis) {
@@ -183,11 +199,8 @@ DWORD WINAPI MainThread(PVOID) {
     memory::midhook(gd::base + 0x2B55D, (uintptr_t) &applyWidth_mh, 11, &applyWidthReturnAddress);
 
 #ifndef IU_NO_MISSING_MARKER
-    memory::writeProtected(cocos2d::base + 0x9C96D,
-                           new BYTE[10]{
-                                   0xBF, IU_MISSING_MARKER, 0x00, 0x00, 0x00, // mov edi, IU_MISSING_MARKER
-                                   0xE9, 0xCF, 0x00, 0x00, 0x00, // jmp back to code flow
-                           }, 10);
+    memory::midhook(cocos2d::base + 0x9C96D, (uintptr_t) &missingCharMarker_mh, 5, &missingCharMarkerReturnAddress);
+    memory::writeProtected(cocos2d::base + 0x9C96D + 5,new BYTE[5]{ 0xE9, 0xCF, 0x00, 0x00, 0x00 }, 5);
 #endif
 
     CCIMEDispatcher_sharedDispatcher = (CCIMEDispatcher_sharedDispatcher_f) GetProcAddress(cocos2d::handle,"?sharedDispatcher@CCIMEDispatcher@cocos2d@@SAPAV12@XZ");
