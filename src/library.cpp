@@ -116,9 +116,6 @@ std::string MultilineBitmapFont_stringWithMaxWidth_h(char* pThis, std::string st
     return *(std::string*)(CCString_create(str2) + 0x20);
 }
 
-typedef void(*GJWriteMessagePopup_updateCharCountLabel_f)(void* pThis, bool isBody);
-GJWriteMessagePopup_updateCharCountLabel_f GJWriteMessagePopup_updateCharCountLabel;
-
 void (*ShareCommentLayer_updateCharCountLabel_o)(void* pThis);
 void ShareCommentLayer_updateCharCountLabel_h(char* pThis) {
     auto strPtr = (std::string*)(pThis + 0x1EC);
@@ -145,23 +142,20 @@ void ShareCommentLayer_updateCharCountLabel_h(char* pThis) {
     *sizePtr = oldSize;
 }
 
-// this is a workaround since I couldn't hook GJWriteMessagePopup::updateCharCountLabel for some reason
-// the failed-to-hook function is only being called here so should be still fine
-void (*GJWriteMessagePopup_updateText_o)(void* pThis, const char** str, bool isBody);
-void GJWriteMessagePopup_updateText_h(char* pThis, const char** str, bool isBody) {
-    GJWriteMessagePopup_updateText_o(pThis, str, isBody);
+void (*GJWriteMessagePopup_updateCharCountLabel_o)(void* pThis, bool isBody);
+void GJWriteMessagePopup_updateCharCountLabel_h(char* pThis, bool isBody) {
+    auto str = (std::string*) (pThis + (isBody ? 0x1F8 : 0x1FC));
     auto fixedSize = 0;
-    auto len = strlen(*str);
-    for(auto i = 0; i < len; i++) {
-        if((*str)[i] < 0b11000000) {
+    for(char i : *str) {
+        if(i < 0b11000000) {
             fixedSize++;
         }
     }
 
-    auto sizePtr = (int*)(*(char**)(pThis + (isBody ? 0x1F8 : 0x1FC)) - 0xC);
+    auto sizePtr = (int*)(*(char**)str - 0xC);
     auto oldSize = *sizePtr;
     *sizePtr = fixedSize;
-    GJWriteMessagePopup_updateCharCountLabel(pThis, isBody);
+    GJWriteMessagePopup_updateCharCountLabel_o(pThis, isBody);
     *sizePtr = oldSize;
 }
 
@@ -223,24 +217,19 @@ inline void init() {
 #endif
     CCString_create = (CCString_create_f) DobbySymbolResolver(cocos2dLibName, "_ZN7cocos2d8CCString6createERKSs");
 
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN19MultilineBitmapFont18stringWithMaxWidthESsff"), (void*)MultilineBitmapFont_stringWithMaxWidth_h, (void**)&MultilineBitmapFont_stringWithMaxWidth_o);
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN10FontObject12getFontWidthEi"), (void*)FontObject_getFontWidth_h, (void**)&FontObject_getFontWidth_o);
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN17ShareCommentLayer20updateCharCountLabelEv"), (void*)ShareCommentLayer_updateCharCountLabel_h, (void**)&ShareCommentLayer_updateCharCountLabel_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN19MultilineBitmapFont18stringWithMaxWidthESsff"), (dobby_dummy_func_t)MultilineBitmapFont_stringWithMaxWidth_h, (dobby_dummy_func_t*)&MultilineBitmapFont_stringWithMaxWidth_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN10FontObject12getFontWidthEi"), (dobby_dummy_func_t)FontObject_getFontWidth_h, (dobby_dummy_func_t*)&FontObject_getFontWidth_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN17ShareCommentLayer20updateCharCountLabelEv"), (dobby_dummy_func_t)ShareCommentLayer_updateCharCountLabel_h, (dobby_dummy_func_t*)&ShareCommentLayer_updateCharCountLabel_o);
 #ifndef IU_NO_UTF8_VALIDATION
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN8TextArea9setStringESs"), (void*)TextArea_setString_h, (void**)&TextArea_setString_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN8TextArea9setStringESs"), (dobby_dummy_func_t)TextArea_setString_h, (dobby_dummy_func_t*)&TextArea_setString_o);
 #endif
 #ifdef IU_NW_VERSION
     std::ostringstream s;
     s << "inputUnlockerVersion=" << IU_NW_VERSION;
     IU_NW_DATA = std::string(s.str());
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN7cocos2d9extension12CCHttpClient4sendEPNS0_13CCHttpRequestE"), (void*)CCHttpClient_send_h, (void**)&CCHttpClient_send_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN7cocos2d9extension12CCHttpClient4sendEPNS0_13CCHttpRequestE"), (dobby_dummy_func_t)CCHttpClient_send_h, (dobby_dummy_func_t*)&CCHttpClient_send_o);
 #endif
-
-    // nop original call for our workaround
-    // this just avoids unnecessary calls
-    memory::writeProtected(memory::base + 0x342F76, new char[2] { 0x00, 0xBF }, 2);
-    GJWriteMessagePopup_updateCharCountLabel = (GJWriteMessagePopup_updateCharCountLabel_f) DobbySymbolResolver(cocos2dLibName, "_ZN19GJWriteMessagePopup20updateCharCountLabelEi");
-    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN19GJWriteMessagePopup10updateTextESsi"), (void*)GJWriteMessagePopup_updateText_h, (void**)&GJWriteMessagePopup_updateText_o);
+    DobbyHook(DobbySymbolResolver(cocos2dLibName, "_ZN19GJWriteMessagePopup20updateCharCountLabelEi"), (dobby_dummy_func_t) GJWriteMessagePopup_updateCharCountLabel_h, (dobby_dummy_func_t*)&GJWriteMessagePopup_updateCharCountLabel_o);
 }
 
 [[maybe_unused]] JNIEXPORT jint JNI_OnLoad(JavaVM*, void*) {
