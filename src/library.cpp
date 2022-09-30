@@ -154,7 +154,7 @@ void GJWriteMessagePopup_updateCharCountLabel_h(char* pThis, bool isBody) {
         }
     }
 
-    auto sizePtr = (int*)(*(char**)str - 0xC);
+    auto sizePtr = (int*)(*(char **)str - 0xC);
     auto oldSize = *sizePtr;
     *sizePtr = fixedSize;
     GJWriteMessagePopup_updateCharCountLabel_o(pThis, isBody);
@@ -183,7 +183,7 @@ inline void init() {
     memory::init();
 
     // nop allowed chars check
-    memory::writeProtected(memory::base + 0x206378, new char [2] { 0x00, 0xBF }, 2);
+    memory::writeProtected(memory::base + 0x2062CA, new char [2] { 0x00, 0xBF }, 2);
 
     // increase FontObject size
     memory::writeProtected(memory::base + 0x1EECAC + 1, new char [3] { 0xF2, 0xD0, 0x40 }, 3);
