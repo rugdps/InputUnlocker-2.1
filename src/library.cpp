@@ -202,6 +202,9 @@ inline void init() {
     // fix id parsing
     memory::writeProtected(memory::base + 0x1EEBD8, new char[2] { 0x00, 0xBF }, 2);
 
+    // fix non-breaking whitespace protection corrupting utf8 strings
+    memory::writeProtected(memory::base + 0x22ACA6, new char[2] { 0x00, 0xBF }, 2);
+
 #ifndef IU_NO_MISSING_MARKER
 #ifndef IU_MISSING_MARKER
 #define IU_MISSING_MARKER '?'
