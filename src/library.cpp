@@ -10,7 +10,7 @@
 #include <sstream>
 #endif
 
-static_assert(sizeof(std::string) == 4, "std::string size is incorrect. You need to use ndk-b16 or earlier");
+static_assert(sizeof(std::string) == 4, "std::string size is incorrect. You need to use ndk-b17c or earlier");
 
 int (*FontObject_getFontWidth_o)(char* pThis, int code);
 

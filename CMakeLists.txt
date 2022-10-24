@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_ANDROID_NDK $ENV{NDK_ROOT}/platform)
 set(CMAKE_TOOLCHAIN_FILE $ENV{NDK_ROOT}/build/cmake/android.toolchain.cmake)
 set(CMAKE_SOURCE_DIR src)
+set(ANDROID_STL gnustl_static)
 
 project(InputUnlockerHack)
 
@@ -19,10 +20,6 @@ include_directories(
         ${DOBBY_INCLUDE_DIRECTORIES}
         $<TARGET_PROPERTY:dobby,INCLUDE_DIRECTORIES>
 )
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_compile_options(-Oz)
-endif()
 
 # pass through defines for easier building
 if(IU_NO_MISSING_MARKER)
