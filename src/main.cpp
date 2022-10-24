@@ -205,6 +205,9 @@ DWORD WINAPI MainThread(PVOID) {
     // because afaik this code piece only triggers on \n which is always ascii
     memory::writeProtected(gd::base + 0x2B695, new BYTE[2]{0xC8, 0x06}, 2); // map space width to new memory
 
+    // fix non-breaking whitespace protection corrupting utf8 strings
+    memory::writeProtected(gd::base + 0x293658, new BYTE{0x00}, 1);
+
     memory::midhook(gd::base + 0x10845, (uintptr_t) &writeWidth_mh, 11, &writeWidthReturnAddress);
     memory::midhook(gd::base + 0x2A783, (uintptr_t) &readWidth_mh, 9, &readWidthReturnAddress);
     memory::midhook(gd::base + 0x2B55D, (uintptr_t) &applyWidth_mh, 11, &applyWidthReturnAddress);
