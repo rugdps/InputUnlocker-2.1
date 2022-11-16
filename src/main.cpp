@@ -189,7 +189,7 @@ void __fastcall CCHttpClient_setRequestData_h(void* pThis, void* edx, const char
 #endif
 
 DWORD WINAPI MainThread(PVOID) {
-    memory::init(GetCurrentProcessId());
+    memory::init();
 
     memory::writeProtected(gd::base + 0x1030B, new BYTE{0xF4}, 1); // increase FontObject size
     memory::writeProtected(gd::base + 0x2A5E8, new BYTE{0xF6}, 1); // increase MultilineBitmapFont size

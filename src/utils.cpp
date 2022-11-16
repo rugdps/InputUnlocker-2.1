@@ -9,12 +9,7 @@ namespace cocos2d {
     HMODULE handle = nullptr;
 }
 
-static HANDLE handle;
-
-void memory::init(DWORD procId) {
-    // I'm actually not sure if there's any way of writing protected memory without this
-    handle = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, FALSE, procId);
-
+void memory::init() {
     gd::base = (uintptr_t) GetModuleHandle(nullptr);
     cocos2d::handle = GetModuleHandleA("libcocos2d.dll");
     cocos2d::base = (uintptr_t) cocos2d::handle;
@@ -22,9 +17,9 @@ void memory::init(DWORD procId) {
 
 void memory::writeProtected(uintptr_t address, BYTE *bytes, size_t len) {
     DWORD old;
-    VirtualProtectEx(handle, (LPVOID) address, len, PAGE_EXECUTE_READWRITE, &old);
-    WriteProcessMemory(handle, (LPVOID) address, bytes, len, nullptr);
-    VirtualProtectEx(handle, (LPVOID) address, len, old, &old);
+    VirtualProtect((LPVOID) address, len, PAGE_EXECUTE_READWRITE, &old);
+    memcpy((void*)address, bytes, len);
+    VirtualProtect((LPVOID) address, len, old, &old);
 }
 
 void memory::midhook(uintptr_t dst, uintptr_t src, size_t len, uintptr_t *returnAddress) {
