@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.22)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_ANDROID_NDK $ENV{NDK_ROOT}/platform)
 set(CMAKE_TOOLCHAIN_FILE $ENV{NDK_ROOT}/build/cmake/android.toolchain.cmake)
 set(CMAKE_SOURCE_DIR src)
+set(APP_ABI armeabi-v7a)
 set(ANDROID_STL gnustl_static)
+set(ANDROID_PLATFORM android-17)
+set(ANDROID_CPP_FEATURES rtti exceptions)
 
 project(InputUnlockerHack)
 
@@ -40,3 +43,8 @@ endif()
 
 add_library(InputUnlockerHack SHARED ${CMAKE_SOURCE_DIR}/library.cpp ${CMAKE_SOURCE_DIR}/utils.hpp ${CMAKE_SOURCE_DIR}/utils.cpp)
 target_link_libraries(InputUnlockerHack dobby)
+add_custom_command(
+        TARGET InputUnlockerHack
+        POST_BUILD
+        COMMAND ${ANDROID_TOOLCHAIN_PREFIX}strip $<TARGET_FILE:InputUnlockerHack>
+)
