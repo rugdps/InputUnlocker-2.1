@@ -16,7 +16,7 @@ namespace cocos2d {
 
 namespace memory {
     void init();
-    void writeProtected(uintptr_t address, BYTE *bytes, size_t len);
+    void writeProtected(uintptr_t address, BYTE *bytes, size_t len, bool autofree = true);
     void midhook(uintptr_t dst, uintptr_t src, size_t len, uintptr_t* returnAddress);
     int hook(uintptr_t address, void* replaceCall, void** originCall);
 }

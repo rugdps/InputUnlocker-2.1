@@ -15,11 +15,14 @@ void memory::init() {
     cocos2d::base = (uintptr_t) cocos2d::handle;
 }
 
-void memory::writeProtected(uintptr_t address, BYTE *bytes, size_t len) {
+void memory::writeProtected(uintptr_t address, BYTE *bytes, size_t len, bool autofree = true) {
     DWORD old;
     VirtualProtect((LPVOID) address, len, PAGE_EXECUTE_READWRITE, &old);
     memcpy((void*)address, bytes, len);
     VirtualProtect((LPVOID) address, len, old, &old);
+    if(autofree) {
+        delete[] bytes;
+    }
 }
 
 void memory::midhook(uintptr_t dst, uintptr_t src, size_t len, uintptr_t *returnAddress) {
